@@ -70,12 +70,19 @@ def sample_data_optimized(df, margins_idx, margins):
     sample_coeff = count_sampling_coeffs(df, margins_idx, margins)
     df_indices = np.array(df.index, dtype='int64')
     for _ in tqdm.tqdm(range(n)):
-        p = sample_coeff / sample_coeff.sum()
+        sum_coeff = sample_coeff.sum()
+        if sum_coeff == 0:
+            break
+        p = sample_coeff / sum_coeff
         new_idx = weighted_random_choice_numba(p, df_indices)
         sampled_indices.append(new_idx)
         for margin_idx, margin, indices in zip(margins_idx, margins, suitable):
             vals = tuple(df.loc[new_idx, margin_idx].astype(int).values)
             mask = indices[vals]
+            if margin[vals] <= 0:
+                print("ERROR!!! Marginals for sampled individuals shouldn't be 0!")
+                print(margin_idx, p[new_idx])
+                return sample_coeff, sampled_indices
             multiply_numba(sample_coeff, mask, (margin[vals] - 1) / margin[vals])
             margin[vals] -= 1
     return df.loc[sampled_indices].reset_index(drop=True)
